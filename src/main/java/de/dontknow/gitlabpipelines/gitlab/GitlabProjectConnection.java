@@ -21,8 +21,9 @@ import java.util.Optional;
 public class GitlabProjectConnection {
 
     private final ObjectMapper mapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public ProjectDto getProject(GitRepository gitRepository) throws URISyntaxException, IOException, InterruptedException {
+    public ProjectDto getProject(GitRepository gitRepository) throws URISyntaxException, IOException {
         GitlabConfig gitlabConfig = getGitlabConfig();
         if (!gitlabConfig.isValied) return null;
         var encodedProjectPath = getGitRepoOriginPath(gitRepository);
@@ -33,14 +34,18 @@ public class GitlabProjectConnection {
                 .GET()
                 .header("Private-Token", gitlabConfig.accesToken())
                 .build();
-        HttpResponse<String> projectList = HttpClient.newHttpClient().send(projectListRequest, HttpResponse.BodyHandlers.ofString());
-        if (projectList.statusCode() == 200) {
+        HttpResponse<String> projectList = null;
+        try {
+            projectList = httpClient.send(projectListRequest, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException ignored) {
+        }
+        if (projectList != null && projectList.statusCode() == 200) {
             return mapper.readValue(projectList.body(), ProjectDto.class);
         }
         return null;
     }
 
-    public PipelineDto getLatestPipeline(ProjectDto projectDto, String branch) throws URISyntaxException, IOException, InterruptedException {
+    public PipelineDto getLatestPipeline(ProjectDto projectDto, String branch) throws URISyntaxException, IOException {
         var gitlabConfig = getGitlabConfig();
         if (!gitlabConfig.isValied) return null;
 
@@ -49,7 +54,12 @@ public class GitlabProjectConnection {
                 .GET()
                 .header("Private-Token", gitlabConfig.accesToken())
                 .build();
-        HttpResponse<String> projectList = HttpClient.newHttpClient().send(projectListRequest, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> projectList = null;
+        try {
+            projectList = httpClient.send(projectListRequest, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException ignored) {
+
+        }
         if (projectList.statusCode() == 200) {
             var pipelineDtos = mapper.readValue(projectList.body(), new TypeReference<List<PipelineDto>>() {
             });
@@ -60,7 +70,7 @@ public class GitlabProjectConnection {
         return null;
     }
 
-    public List<PipelineJob> getJobsFromPipeline(PipelineDto pipelineDto) throws URISyntaxException, IOException, InterruptedException {
+    public List<PipelineJob> getJobsFromPipeline(PipelineDto pipelineDto) throws URISyntaxException, IOException {
         var gitlabConfig = getGitlabConfig();
         if (!gitlabConfig.isValied) return null;
 
@@ -69,7 +79,12 @@ public class GitlabProjectConnection {
                 .GET()
                 .header("Private-Token", gitlabConfig.accesToken())
                 .build();
-        HttpResponse<String> projectList = HttpClient.newHttpClient().send(projectListRequest, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> projectList = null;
+        try {
+            projectList = httpClient.send(projectListRequest, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException ignored) {
+
+        }
         if (projectList.statusCode() == 200) {
             return mapper.readValue(projectList.body(), new TypeReference<>() {
             });
@@ -77,7 +92,7 @@ public class GitlabProjectConnection {
         return null;
     }
 
-    public PipelineJob getJob(long projectId, int jobsID) throws URISyntaxException, IOException, InterruptedException {
+    public PipelineJob getJob(long projectId, int jobsID) throws URISyntaxException, IOException {
         GitlabConfig gitlabConfig = getGitlabConfig();
         if (!gitlabConfig.isValied) return null;
 
@@ -86,7 +101,12 @@ public class GitlabProjectConnection {
                 .GET()
                 .header("Private-Token", gitlabConfig.accesToken())
                 .build();
-        HttpResponse<String> projectList = HttpClient.newHttpClient().send(projectListRequest, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> projectList = null;
+        try {
+            projectList = httpClient.send(projectListRequest, HttpResponse.BodyHandlers.ofString());
+        } catch (InterruptedException ignored) {
+
+        }
         if (projectList.statusCode() == 200) {
             return mapper.readValue(projectList.body(), PipelineJob.class);
         }
@@ -100,7 +120,7 @@ public class GitlabProjectConnection {
                     .GET()
                     .header("Private-Token", token)
                     .build();
-            var httpResponse = HttpClient.newHttpClient().send(projectListRequest, HttpResponse.BodyHandlers.ofString());
+            var httpResponse = httpClient.send(projectListRequest, HttpResponse.BodyHandlers.ofString());
             return httpResponse.statusCode() == HttpURLConnection.HTTP_OK;
         } catch (URISyntaxException | IOException | InterruptedException e) {
             return false;
@@ -125,6 +145,10 @@ public class GitlabProjectConnection {
         if (configInstance.getState() == null) return new GitlabConfig(null, null, false);
         String gitlabUrl = configInstance.getState().gitlabUrl;
         String accesToken = configInstance.getState().privateToken;
+        return getGitlabConfig(gitlabUrl, accesToken);
+    }
+
+    private @NotNull GitlabConfig getGitlabConfig(String gitlabUrl, String accesToken) {
         if (accesToken == null || accesToken.isEmpty()) return new GitlabConfig(null, null, false);
         if (gitlabUrl == null) return new GitlabConfig(null, null, false);
         if (!isValidURL(gitlabUrl, accesToken)) return new GitlabConfig(null, null, false);
@@ -133,6 +157,10 @@ public class GitlabProjectConnection {
 
     public boolean isValid() {
         return getGitlabConfig().isValied();
+    }
+
+    public boolean isValid(String gitlabUrl, String accesToken) {
+        return getGitlabConfig(gitlabUrl, accesToken).isValied();
     }
 
     private String extractProjectPath(String gitPullUrl) {
