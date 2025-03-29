@@ -20,42 +20,24 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class PipelineStatusWidget implements CustomStatusBarWidget {
     private final GitlabProjectConnection gitlabProjectConnection;
     private final Project project;
 
-
     private final HashMap<Integer, JobPanelDto> jobs = new HashMap<>();
     private final HashSet<PipelineDto> pipelines = new HashSet<>();
-    private ProjectDto gitlabProject;
 
     public PipelineStatusWidget(GitlabProjectConnection gitlabProjectConnection, @NotNull Project project) {
         this.gitlabProjectConnection = gitlabProjectConnection;
         this.project = project;
     }
 
-    public String getGitOriginUrl(Project project) {
-        // Get the GitRepositoryManager instance
-        var repositoryManager = GitRepositoryManager.getInstance(project);
-        List<GitRepository> repositories = repositoryManager.getRepositories();
-        if (repositories.isEmpty()) {
-            return null;
-        }
-        // For this example, we use the first repository
-        var repository = repositories.get(0);
-        // Find the remote named "origin" if available; otherwise, take the first remote
-        var originRemote = repository.getRemotes().stream()
-                .filter(remote -> "origin".equals(remote.getName()))
-                .findFirst()
-                .orElse(repository.getRemotes().stream().findFirst().orElse(null));
-        return originRemote != null ? originRemote.getFirstUrl() : null;
-    }
-
     @NotNull
     @Override
     public String ID() {
-        return "myCustomWidget";
+        return "gitlab-status-widget";
     }
 
     @Override
@@ -98,7 +80,6 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
                             }
                         }
                     } else {
-                        gitlabProject = null;
                         pipelines.clear();
                         jobs.clear();
                     }
@@ -121,16 +102,23 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
                         if (jobsFromPipeline == null) continue;
                         root.removeAll();
                         jobs.clear();
-                        jobsFromPipeline.forEach(pipelineJob -> {
+                        String lastStage = null;
+                        for (PipelineJob job : jobsFromPipeline) {
+                            if (!Objects.equals(lastStage, job.stage())) {
+                                if (lastStage != null) {
+                                    var icon = IconLoader.getIcon("Icons/arrow-left.svg", getClass());
+                                    root.add(new JLabel(IconUtil.scale(icon, .8f)));
+                                }
+                                lastStage = job.stage();
+                            }
                             var jLabel = new JLabel();
                             root.add(jLabel);
-                            root.add(Box.createHorizontalStrut(5));
-                            updateLabel(jLabel, pipelineJob);
-                            jobs.put(pipelineJob.id(), new JobPanelDto(jLabel, pipelineJob, first.get().project_id()));
-                        });
+                            updateLabel(jLabel, job);
+                            jobs.put(job.id(), new JobPanelDto(jLabel, job, first.get().project_id()));
+                        }
                     } else {
                         root.removeAll();
-                        root.add(new JLabel("config error"));
+                        root.add(new JLabel("loading..."));
                     }
 
                     Thread.sleep(500);
@@ -196,10 +184,29 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
                 label.setIcon(icon);
             }
         }
+        label.setToolTipText(job.name());
         label.revalidate();
         label.repaint();
     }
 
     private record JobPanelDto(JLabel label, PipelineJob pipelineJob, long projectId) {
+
+    }
+
+    public String getGitOriginUrl(Project project) {
+        // Get the GitRepositoryManager instance
+        var repositoryManager = GitRepositoryManager.getInstance(project);
+        List<GitRepository> repositories = repositoryManager.getRepositories();
+        if (repositories.isEmpty()) {
+            return null;
+        }
+        // For this example, we use the first repository
+        var repository = repositories.get(0);
+        // Find the remote named "origin" if available; otherwise, take the first remote
+        var originRemote = repository.getRemotes().stream()
+                .filter(remote -> "origin".equals(remote.getName()))
+                .findFirst()
+                .orElse(repository.getRemotes().stream().findFirst().orElse(null));
+        return originRemote != null ? originRemote.getFirstUrl() : null;
     }
 }
