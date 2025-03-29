@@ -6,6 +6,7 @@ import de.dontknow.gitlabpipelines.config.GitlabConnectionStorage;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineDto;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineJob;
 import de.dontknow.gitlabpipelines.gitlab.dto.ProjectDto;
+import git4idea.repo.GitRepository;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -13,35 +14,28 @@ import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 
 public class GitlabProjectConnection {
 
-    private final String projectName;
-
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public GitlabProjectConnection(String projectName) {
-        this.projectName = projectName;
-    }
-
-    public ProjectDto getProject() throws URISyntaxException, IOException, InterruptedException {
+    public ProjectDto getProject(GitRepository gitRepository) throws URISyntaxException, IOException, InterruptedException {
         GitlabConfig gitlabConfig = getGitlabConfig();
         if (!gitlabConfig.isValied) return null;
+        var encodedProjectPath = getGitRepoOriginPath(gitRepository);
+        if (encodedProjectPath.isEmpty()) return null;
 
         HttpRequest projectListRequest = HttpRequest.newBuilder()
-                .uri(new URI(gitlabConfig.gitlabUrl() + "/api/v4/projects?search=" + projectName))
+                .uri(new URI(String.format("%s/api/v4/projects/%s", gitlabConfig.gitlabUrl(), encodedProjectPath.get())))
                 .GET()
                 .header("Private-Token", gitlabConfig.accesToken())
                 .build();
         HttpResponse<String> projectList = HttpClient.newHttpClient().send(projectListRequest, HttpResponse.BodyHandlers.ofString());
         if (projectList.statusCode() == 200) {
-            List<ProjectDto> projectListDto = mapper.readValue(projectList.body(), new TypeReference<>() {
-            });
-            return projectListDto.stream()
-                    .filter(project -> project.name().equals(projectName))
-                    .findFirst()
-                    .orElseThrow();
+            return mapper.readValue(projectList.body(), ProjectDto.class);
         }
         return null;
     }
@@ -113,6 +107,18 @@ public class GitlabProjectConnection {
         }
     }
 
+    private Optional<String> getGitRepoOriginPath(GitRepository gitRepository) {
+        var originRemote = gitRepository.getRemotes().stream()
+                .filter(remote -> "origin".equals(remote.getName()))
+                .findFirst()
+                .orElse(gitRepository.getRemotes().stream().findFirst().orElse(null));
+        if (originRemote == null) return Optional.empty();
+        if (originRemote.getFirstUrl() == null) return Optional.empty();
+        var projectPath = extractProjectPath(originRemote.getFirstUrl());
+        if (projectPath == null) return Optional.empty();
+        return Optional.of(URLEncoder.encode(projectPath, StandardCharsets.UTF_8));
+    }
+
 
     private GitlabProjectConnection.@NotNull GitlabConfig getGitlabConfig() {
         GitlabConnectionStorage configInstance = GitlabConnectionStorage.getInstance();
@@ -128,6 +134,30 @@ public class GitlabProjectConnection {
     public boolean isValid() {
         return getGitlabConfig().isValied();
     }
+
+    private String extractProjectPath(String gitPullUrl) {
+        if (gitPullUrl.startsWith("git@")) {
+            int colonIndex = gitPullUrl.indexOf(':');
+            String path = gitPullUrl.substring(colonIndex + 1);
+            if (path.endsWith(".git")) {
+                path = path.substring(0, path.length() - 4);
+            }
+            return path;
+        }
+        if (gitPullUrl.startsWith("https://") || gitPullUrl.startsWith("http://")) {
+            URI uri = URI.create(gitPullUrl);
+            String path = uri.getPath();
+            if (path.startsWith("/")) {
+                path = path.substring(1);
+            }
+            if (path.endsWith(".git")) {
+                path = path.substring(0, path.length() - 4);
+            }
+            return path;
+        }
+        return null;
+    }
+
 
     private record GitlabConfig(String gitlabUrl, String accesToken, boolean isValied) {
     }

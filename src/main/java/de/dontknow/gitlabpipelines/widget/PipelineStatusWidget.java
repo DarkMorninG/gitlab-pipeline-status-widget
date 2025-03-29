@@ -71,8 +71,9 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
             try {
                 while (true) {
                     if (gitlabProjectConnection.isValid()) {
-                        var gitlabProject = gitlabProjectConnection.getProject();
                         var gitRepo = getGitRepo(project);
+                        if (gitRepo.isEmpty()) continue;
+                        var gitlabProject = gitlabProjectConnection.getProject(gitRepo.get());
                         PipelineDto master = gitlabProjectConnection.getLatestPipeline(gitlabProject, gitRepo.map(GitRepository::getCurrentBranch).map(GitReference::getName).orElse("master"));
                         if (master != null) {
                             if (!pipelines.contains(master)) {

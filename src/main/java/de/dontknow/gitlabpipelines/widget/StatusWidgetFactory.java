@@ -31,7 +31,7 @@ public class StatusWidgetFactory implements StatusBarWidgetFactory {
     @NotNull
     @Override
     public StatusBarWidget createWidget(@NotNull Project project) {
-        var gitlabProjectConnection = new GitlabProjectConnection(project.getName());
+        var gitlabProjectConnection = new GitlabProjectConnection();
         return new PipelineStatusWidget(gitlabProjectConnection, project);
     }
 
