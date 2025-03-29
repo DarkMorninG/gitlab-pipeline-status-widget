@@ -74,7 +74,7 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
         root.setLayout(new BoxLayout(root, BoxLayout.X_AXIS));
         try {
             System.out.println(getGitOriginUrl(project));
-            setProjectIfConfigIsCorrect(root).start();
+            updatePipeline().start();
             GitlabPipelineStatusUpdateRunner(root).start();
             UpdateJobStates().start();
 
@@ -84,7 +84,7 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
         return root;
     }
 
-    private Thread setProjectIfConfigIsCorrect(JPanel root) throws URISyntaxException, IOException, InterruptedException {
+    private Thread updatePipeline() throws URISyntaxException, IOException, InterruptedException {
         return new Thread(() -> {
             try {
                 while (true) {

@@ -30,21 +30,8 @@
                 instance="de.dontknow.gitlabpipelines.config.AppSettingsConfigurable"
                 id="gitlabConfig"
                 displayName="Gitlab Pipeline Widget"/>
-        <toolWindow id="Sample Calendar"
-                    secondary="true"
-                    anchor="right"
-                    factoryClass="de.dontknow.gitlabpipelines.window.Window"/>
         <statusBarWidgetFactory
                 implementation="de.dontknow.gitlabpipelines.widget.StatusWidgetFactory" id="Pipeline Status"/>
     </extensions>
 
-    <actions>
-        <action id="com.example.plugin.MyToolbarWidget"
-                class="de.dontknow.gitlabpipelines.widget.ToolbarWidget"
-                text="My Widget"
-                description="A custom toolbar widget">
-            <!-- Add to the main toolbar; you can adjust anchor to control the placement -->
-            <add-to-group group-id="MainToolBar" anchor="last"/>
-        </action>
-    </actions>
 </idea-plugin>
