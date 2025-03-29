@@ -51,13 +51,17 @@ public class GitlabProjectConnection {
         if (!gitlabConfig.isValied) return null;
 
         HttpRequest projectListRequest = HttpRequest.newBuilder()
-                .uri(new URI(gitlabConfig.gitlabUrl + "/api/v4/projects/" + projectDto.id() + "/pipelines/latest"))
+                .uri(new URI(String.format("%s/api/v4/projects/%s/pipelines?ref=%s", gitlabConfig.gitlabUrl, projectDto.id(), branch)))
                 .GET()
                 .header("Private-Token", gitlabConfig.accesToken())
                 .build();
         HttpResponse<String> projectList = HttpClient.newHttpClient().send(projectListRequest, HttpResponse.BodyHandlers.ofString());
         if (projectList.statusCode() == 200) {
-            return mapper.readValue(projectList.body(), PipelineDto.class);
+            var pipelineDtos = mapper.readValue(projectList.body(), new TypeReference<List<PipelineDto>>() {
+            });
+            if (!pipelineDtos.isEmpty()) {
+                return pipelineDtos.get(0);
+            }
         }
         return null;
     }

@@ -9,9 +9,10 @@ import com.intellij.util.IconUtil;
 import de.dontknow.gitlabpipelines.gitlab.GitlabProjectConnection;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineDto;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineJob;
-import de.dontknow.gitlabpipelines.gitlab.dto.ProjectDto;
+import git4idea.GitReference;
 import git4idea.repo.GitRepository;
 import git4idea.repo.GitRepositoryManager;
+import org.eclipse.jgit.lib.Repository;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -20,7 +21,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class PipelineStatusWidget implements CustomStatusBarWidget {
     private final GitlabProjectConnection gitlabProjectConnection;
@@ -55,7 +55,7 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
         var root = new JPanel();
         root.setLayout(new BoxLayout(root, BoxLayout.X_AXIS));
         try {
-            System.out.println(getGitOriginUrl(project));
+            System.out.println(getGitRepo(project));
             updatePipeline().start();
             GitlabPipelineStatusUpdateRunner(root).start();
             UpdateJobStates().start();
@@ -72,7 +72,8 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
                 while (true) {
                     if (gitlabProjectConnection.isValid()) {
                         var gitlabProject = gitlabProjectConnection.getProject();
-                        PipelineDto master = gitlabProjectConnection.getLatestPipeline(gitlabProject, "master");
+                        var gitRepo = getGitRepo(project);
+                        PipelineDto master = gitlabProjectConnection.getLatestPipeline(gitlabProject, gitRepo.map(GitRepository::getCurrentBranch).map(GitReference::getName).orElse("master"));
                         if (master != null) {
                             if (!pipelines.contains(master)) {
                                 pipelines.clear();
@@ -189,24 +190,17 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
         label.repaint();
     }
 
-    private record JobPanelDto(JLabel label, PipelineJob pipelineJob, long projectId) {
-
-    }
-
-    public String getGitOriginUrl(Project project) {
-        // Get the GitRepositoryManager instance
+    public Optional<GitRepository> getGitRepo(Project project) {
         var repositoryManager = GitRepositoryManager.getInstance(project);
         List<GitRepository> repositories = repositoryManager.getRepositories();
         if (repositories.isEmpty()) {
-            return null;
+            return Optional.empty();
         }
-        // For this example, we use the first repository
-        var repository = repositories.get(0);
-        // Find the remote named "origin" if available; otherwise, take the first remote
-        var originRemote = repository.getRemotes().stream()
-                .filter(remote -> "origin".equals(remote.getName()))
-                .findFirst()
-                .orElse(repository.getRemotes().stream().findFirst().orElse(null));
-        return originRemote != null ? originRemote.getFirstUrl() : null;
+        return Optional.of(repositories.get(0));
+    }
+
+
+    private record JobPanelDto(JLabel label, PipelineJob pipelineJob, long projectId) {
+
     }
 }
