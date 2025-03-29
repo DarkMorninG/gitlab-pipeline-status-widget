@@ -1,0 +1,50 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+    <id>de.dontknow.gitlab-pipelines</id>
+
+    <!-- Public plugin name should be written in Title Case.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
+    <name>Gitlab-pipelines</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor email="support@yourcompany.com" url="https://www.yourcompany.com">YourCompany</vendor>
+
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
+    <description>some Description</description>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <!-- Extension points defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService
+                serviceImplementation="de.dontknow.gitlabpipelines.config.GitlabConnectionStorage"/>
+        <applicationConfigurable
+                parentId="tools"
+                instance="de.dontknow.gitlabpipelines.config.AppSettingsConfigurable"
+                id="gitlabConfig"
+                displayName="Gitlab Pipeline Widget"/>
+        <toolWindow id="Sample Calendar"
+                    secondary="true"
+                    anchor="right"
+                    factoryClass="de.dontknow.gitlabpipelines.window.Window"/>
+        <statusBarWidgetFactory
+                implementation="de.dontknow.gitlabpipelines.widget.StatusWidgetFactory" id="Pipeline Status"/>
+    </extensions>
+
+    <actions>
+        <action id="com.example.plugin.MyToolbarWidget"
+                class="de.dontknow.gitlabpipelines.widget.ToolbarWidget"
+                text="My Widget"
+                description="A custom toolbar widget">
+            <!-- Add to the main toolbar; you can adjust anchor to control the placement -->
+            <add-to-group group-id="MainToolBar" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
