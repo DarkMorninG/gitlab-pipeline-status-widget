@@ -13,14 +13,14 @@ public class StatusWidgetFactory implements StatusBarWidgetFactory {
     @NotNull
     @Override
     public String getId() {
-        return "myCustomWidget";
+        return "gitlab-widget-status-factory";
     }
 
     @Nls(capitalization = Nls.Capitalization.Title)
     @NotNull
     @Override
     public String getDisplayName() {
-        return "My Custom Widget";
+        return "Gitlab Status Widget";
     }
 
     @Override
