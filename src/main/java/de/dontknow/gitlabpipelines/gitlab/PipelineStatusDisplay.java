@@ -89,7 +89,7 @@ public class PipelineStatusDisplay {
                     if (!Objects.equals(lastStage, job.stage())) {
                         if (lastStage != null) {
                             var icon = IconLoader.getIcon("Icons/arrow-left.svg", getClass());
-                            root.add(new JLabel(IconUtil.scale(icon, .8f)));
+                            root.add(new JLabel(IconUtil.scale(icon, root, .8f)));
                         }
                         lastStage = job.stage();
                     }
@@ -129,32 +129,26 @@ public class PipelineStatusDisplay {
         switch (job.status()) {
             case waiting_for_resource -> {
                 var icon = IconLoader.getIcon("/Icons/status-waiting-for-resource.svg", getClass());
-                icon = IconUtil.colorize(icon, JBColor.GRAY);
                 label.setIcon(icon);
             }
             case success -> {
                 var icon = IconLoader.getIcon("/Icons/status_success_solid.svg", getClass());
-                icon = IconUtil.colorize(icon, Color.GREEN);
                 label.setIcon(icon);
             }
             case pending -> {
                 var icon = IconLoader.getIcon("/Icons/status-paused.svg", getClass());
-                icon = IconUtil.colorize(icon, JBColor.YELLOW);
                 label.setIcon(icon);
             }
             case failed -> {
                 var icon = IconLoader.getIcon("/Icons/status-failed.svg", getClass());
-                icon = IconUtil.colorize(icon, JBColor.RED);
                 label.setIcon(icon);
             }
             case running -> {
                 var icon = IconLoader.getIcon("/Icons/status-running.svg", getClass());
-                icon = IconUtil.colorize(icon, JBColor.BLUE);
                 label.setIcon(icon);
             }
             case created -> {
                 var icon = IconLoader.getIcon("/Icons/status-waiting.svg", getClass());
-                icon = IconUtil.colorize(icon, JBColor.YELLOW);
                 label.setIcon(icon);
             }
         }
