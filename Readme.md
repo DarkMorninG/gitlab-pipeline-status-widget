@@ -1,5 +1,5 @@
 # Gitlab Status Widget
-#### for Jetbrains IDE's
+for Jetbrains IDE's
 
 ## Quickstart
 + Install the Plugin via the Marketplace
