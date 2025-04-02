@@ -64,7 +64,7 @@ public class AppSettingComponent {
     }
 
     public String getGitlabPrivateToken() {
-        return gitlabPrivateTokenText.getText();
+        return new String(gitlabPrivateTokenText.getPassword());
     }
 
     public void setGitlabPrivateToken(String newToken) {
