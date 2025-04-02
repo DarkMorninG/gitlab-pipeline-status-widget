@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "de.dontknow"
-version = "1.0-SNAPSHOT"
+version = "1.0.1"
 
 repositories {
     mavenCentral()
@@ -46,6 +46,6 @@ tasks {
     }
 
     publishPlugin {
-        token.set(System.getenv("PUBLISH_TOKEN"))
+        token.set(findProperty("publish-token") as String)
     }
 }
