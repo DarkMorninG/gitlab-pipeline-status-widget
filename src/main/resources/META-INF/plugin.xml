@@ -20,6 +20,18 @@
         + Now your Pipeline Status will be displayed in the bottom right
     </description>
 
+    <version>1.0.3</version>
+    <change-notes>
+        <![CDATA[
+        <ul>
+            <li>✨ Added group by stages</li>
+            <li>✨ Added click on Stage Icon</li>
+            <li>✨ Added redirect to job logs on gitlab</li>
+            <li>🐛 Fixed bug displaying manual stages/jobs</li>
+        </ul>
+        ]]>
+    </change-notes>
+
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
