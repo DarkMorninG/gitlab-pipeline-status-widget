@@ -10,7 +10,10 @@ import git4idea.repo.GitRepository;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -75,7 +78,7 @@ public class GitlabProjectConnection {
         if (!gitlabConfig.isValied) return null;
 
         HttpRequest projectListRequest = HttpRequest.newBuilder()
-                .uri(new URI(gitlabConfig.gitlabUrl + "/api/v4/projects/" + pipelineDto.project_id() + "/pipelines/" + pipelineDto.id() + "/jobs"))
+                .uri(new URI(gitlabConfig.gitlabUrl + "/api/v4/projects/" + pipelineDto.project_id() + "/pipelines/" + pipelineDto.id() + "/jobs?per_page=200"))
                 .GET()
                 .header("Private-Token", gitlabConfig.accesToken())
                 .build();
@@ -92,23 +95,23 @@ public class GitlabProjectConnection {
         return null;
     }
 
-    public PipelineJob getJob(long projectId, int jobsID) throws URISyntaxException, IOException {
+    public PipelineJob getJob(long projectId, int jobsID) {
         GitlabConfig gitlabConfig = getGitlabConfig();
         if (!gitlabConfig.isValied) return null;
 
-        HttpRequest projectListRequest = HttpRequest.newBuilder()
-                .uri(new URI(gitlabConfig.gitlabUrl + "/api/v4/projects/" + projectId + "/jobs/" + jobsID))
-                .GET()
-                .header("Private-Token", gitlabConfig.accesToken())
-                .build();
-        HttpResponse<String> projectList = null;
         try {
+            HttpRequest projectListRequest = HttpRequest.newBuilder()
+                    .uri(new URI(gitlabConfig.gitlabUrl + "/api/v4/projects/" + projectId + "/jobs/" + jobsID))
+                    .GET()
+                    .header("Private-Token", gitlabConfig.accesToken())
+                    .build();
+            HttpResponse<String> projectList = null;
             projectList = httpClient.send(projectListRequest, HttpResponse.BodyHandlers.ofString());
-        } catch (InterruptedException ignored) {
+            if (projectList.statusCode() == 200) {
+                return mapper.readValue(projectList.body(), PipelineJob.class);
+            }
+        } catch (URISyntaxException | IOException | InterruptedException ignored) {
 
-        }
-        if (projectList.statusCode() == 200) {
-            return mapper.readValue(projectList.body(), PipelineJob.class);
         }
         return null;
     }
@@ -142,6 +145,7 @@ public class GitlabProjectConnection {
 
     private GitlabProjectConnection.@NotNull GitlabConfig getGitlabConfig() {
         GitlabConnectionStorage configInstance = GitlabConnectionStorage.getInstance();
+        if (configInstance == null) return new GitlabConfig(null, null, false);
         if (configInstance.getState() == null) return new GitlabConfig(null, null, false);
         String gitlabUrl = configInstance.getState().gitlabUrl;
         String accesToken = configInstance.getState().privateToken;

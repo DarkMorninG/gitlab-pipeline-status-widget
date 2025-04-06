@@ -1,27 +1,34 @@
 package de.dontknow.gitlabpipelines.gitlab;
 
+import com.intellij.ide.DataManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.util.IconLoader;
-import com.intellij.ui.JBColor;
 import com.intellij.util.IconUtil;
+import de.dontknow.gitlabpipelines.gitlab.dto.JobStatus;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineDto;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineJob;
+import de.dontknow.gitlabpipelines.widget.JobDisplayAction;
+import de.dontknow.gitlabpipelines.widget.JobGroupDropDown;
 import git4idea.GitReference;
 import git4idea.repo.GitRepository;
 import git4idea.repo.GitRepositoryChangeListener;
 import git4idea.repo.GitRepositoryManager;
 
 import javax.swing.*;
-import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.*;
-import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 public class PipelineStatusDisplay {
 
-    private final HashMap<Integer, JobPanelDto> jobs = new HashMap<>();
+    private final HashMap<String, StagePanelDto> displayedStages = new HashMap<>();
+    private final HashMap<Integer, JobPanelActionDto> displayedActionJobs = new HashMap<>();
     private final HashSet<PipelineDto> pipelines = new HashSet<>();
     private Thread watcher;
 
@@ -44,8 +51,7 @@ public class PipelineStatusDisplay {
 
         watcher = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()) {
-                updateActivePipeline(project);
-                updatePipelineStatus(rootPanel);
+                updateActivePipeline(project, rootPanel);
                 updateJobStates();
             }
         });
@@ -53,7 +59,7 @@ public class PipelineStatusDisplay {
     }
 
 
-    private void updateActivePipeline(Project project) {
+    private void updateActivePipeline(Project project, JPanel root) {
         try {
             if (gitlabProjectConnection.isValid()) {
                 var gitRepo = getGitRepo(project);
@@ -64,11 +70,12 @@ public class PipelineStatusDisplay {
                     if (!pipelines.contains(master)) {
                         pipelines.clear();
                         pipelines.add(master);
+                        updatePipelineStatus(root, master);
                     }
                 }
             } else {
                 pipelines.clear();
-                jobs.clear();
+                displayedStages.clear();
             }
         } catch (URISyntaxException | IOException e) {
             throw new RuntimeException(e);
@@ -76,36 +83,54 @@ public class PipelineStatusDisplay {
 
     }
 
-    public void updatePipelineStatus(JPanel root) {
+    public void updatePipelineStatus(JPanel root, PipelineDto pipelineDto) {
         try {
-            var first = pipelines.stream().findFirst();
-            if (first.isPresent()) {
-                List<PipelineJob> jobsFromPipeline = gitlabProjectConnection.getJobsFromPipeline(first.get());
-                if (jobsFromPipeline == null) return;
-                root.removeAll();
-                jobs.clear();
-                String lastStage = null;
-                for (PipelineJob job : jobsFromPipeline) {
-                    if (!Objects.equals(lastStage, job.stage())) {
-                        if (lastStage != null) {
-                            var icon = IconLoader.getIcon("Icons/arrow-left.svg", getClass());
-                            root.add(new JLabel(IconUtil.scale(icon, root, .8f)));
-                        }
-                        lastStage = job.stage();
-                    }
-                    var jLabel = new JLabel();
-                    root.add(jLabel);
-                    updateLabel(jLabel, job);
-                    jobs.put(job.id(), new JobPanelDto(jLabel, job, first.get().project_id()));
-                }
-            } else {
-                displayLoading(root);
-            }
+            List<PipelineJob> jobsFromPipeline = gitlabProjectConnection.getJobsFromPipeline(pipelineDto);
+            if (jobsFromPipeline == null) return;
+            root.removeAll();
+            displayedStages.clear();
+            var jobsByStage = jobsFromPipeline.stream().collect(Collectors.groupingBy(PipelineJob::stage, LinkedHashMap::new, Collectors.toList()));
+            AtomicBoolean isFirst = new AtomicBoolean(false);
 
-        } catch (URISyntaxException | IOException e) {
+
+            jobsByStage.forEach((stage, jobs) -> {
+                if (!isFirst.get()) {
+                    isFirst.set(true);
+                } else {
+                    var icon = IconLoader.getIcon("Icons/arrow-left.svg", getClass());
+                    root.add(new JLabel(IconUtil.scale(icon, root, .8f)));
+                }
+
+                var stageLabelDisplay = new JLabel();
+                var jobGroupDropDown = new JobGroupDropDown(jobs.stream().map(pipelineJob -> {
+                    var jobDisplayAction = new JobDisplayAction(pipelineJob);
+                    displayedActionJobs.put(pipelineJob.id(), new JobPanelActionDto(jobDisplayAction, pipelineJob));
+                    return jobDisplayAction;
+                }).toList());
+                stageLabelDisplay.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        openPopup(e, jobGroupDropDown, stage);
+                    }
+                });
+                displayedStages.put(stage, new StagePanelDto(stageLabelDisplay, jobs));
+                stageLabelDisplay.setToolTipText(stage);
+                root.add(stageLabelDisplay);
+
+            });
+
+        } catch (URISyntaxException |
+                 IOException e) {
             throw new RuntimeException(e);
         }
     }
+
+    private static void openPopup(MouseEvent e, JobGroupDropDown jobGroupDropDown, String stage) {
+        var dataContext = DataManager.getInstance().getDataContext(e.getComponent());
+        var popup = JBPopupFactory.getInstance().createActionGroupPopup(stage, jobGroupDropDown, dataContext, JBPopupFactory.ActionSelectionAid.SPEEDSEARCH, true);
+        popup.showInBestPositionFor(dataContext);
+    }
+
 
     private static void displayLoading(JPanel root) {
         root.removeAll();
@@ -113,45 +138,39 @@ public class PipelineStatusDisplay {
     }
 
     private void updateJobStates() {
-        List<JobPanelDto> values = new ArrayList<>(jobs.values());
-        values.forEach(pipelineJob -> {
-            try {
-                PipelineJob job = gitlabProjectConnection.getJob(pipelineJob.projectId, pipelineJob.pipelineJob.id());
-                if (job == null) return;
-                updateLabel(pipelineJob.label, job);
-            } catch (URISyntaxException | IOException e) {
-                throw new RuntimeException(e);
+        List<StagePanelDto> displayLabelJobs = new ArrayList<>(displayedStages.values());
+        displayLabelJobs.parallelStream().forEach(stagePanelDto -> {
+            var stageStatuses = stagePanelDto.stageJobs.parallelStream()
+                    .map(job -> gitlabProjectConnection.getJob(job.pipeline().project_id(), job.id()))
+                    .filter(Objects::nonNull)
+                    .map(PipelineJob::status)
+                    .toList();
+            if (stageStatuses.stream().anyMatch(status -> status == JobStatus.failed)) {
+                stagePanelDto.label.setIcon(JobStatus.failed.getIcon());
+            } else if (stageStatuses.stream().anyMatch(status -> status == JobStatus.running)) {
+                stagePanelDto.label.setIcon(JobStatus.running.getIcon());
+            } else if (stageStatuses.stream().anyMatch(status -> status == JobStatus.pending)) {
+                stagePanelDto.label.setIcon(JobStatus.pending.getIcon());
+            } else if (stageStatuses.stream().anyMatch(status -> status == JobStatus.manual)) {
+                stagePanelDto.label.setIcon(JobStatus.manual.getIcon());
+            } else if (stageStatuses.stream().allMatch(status -> status == JobStatus.created)) {
+                stagePanelDto.label.setIcon(JobStatus.created.getIcon());
+            } else if (stageStatuses.stream().allMatch(status -> status == JobStatus.success)) {
+                stagePanelDto.label.setIcon(JobStatus.success.getIcon());
             }
+        });
+
+        List<JobPanelActionDto> displayActionJobs = new ArrayList<>(displayedActionJobs.values());
+        displayActionJobs.forEach(pipelineJob -> {
+            PipelineJob job = gitlabProjectConnection.getJob(pipelineJob.pipelineJob.pipeline().project_id(), pipelineJob.pipelineJob.id());
+            if (job == null) return;
+            pipelineJob.jobDisplayAction.getTemplatePresentation().setIcon(job.status().getIcon());
+            pipelineJob.jobDisplayAction.getTemplatePresentation().setText(job.name());
         });
     }
 
     private void updateLabel(JLabel label, PipelineJob job) {
-        switch (job.status()) {
-            case waiting_for_resource -> {
-                var icon = IconLoader.getIcon("/Icons/status-waiting-for-resource.svg", getClass());
-                label.setIcon(icon);
-            }
-            case success -> {
-                var icon = IconLoader.getIcon("/Icons/status_success_solid.svg", getClass());
-                label.setIcon(icon);
-            }
-            case pending -> {
-                var icon = IconLoader.getIcon("/Icons/status-paused.svg", getClass());
-                label.setIcon(icon);
-            }
-            case failed -> {
-                var icon = IconLoader.getIcon("/Icons/status-failed.svg", getClass());
-                label.setIcon(icon);
-            }
-            case running -> {
-                var icon = IconLoader.getIcon("/Icons/status-running.svg", getClass());
-                label.setIcon(icon);
-            }
-            case created -> {
-                var icon = IconLoader.getIcon("/Icons/status-waiting.svg", getClass());
-                label.setIcon(icon);
-            }
-        }
+        label.setIcon(job.status().getIcon());
         label.setToolTipText(job.name());
         label.revalidate();
         label.repaint();
@@ -167,7 +186,11 @@ public class PipelineStatusDisplay {
     }
 
 
-    private record JobPanelDto(JLabel label, PipelineJob pipelineJob, long projectId) {
+    private record StagePanelDto(JLabel label, List<PipelineJob> stageJobs) {
+
+    }
+
+    private record JobPanelActionDto(JobDisplayAction jobDisplayAction, PipelineJob pipelineJob) {
 
     }
 }
