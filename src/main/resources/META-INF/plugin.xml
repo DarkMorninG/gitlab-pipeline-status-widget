@@ -24,14 +24,13 @@
         ]]>
     </description>
 
-    <version>1.0.3</version>
+
+    <version>1.0.4</version>
     <change-notes>
         <![CDATA[
         <ul>
-            <li>✨ Added group by stages</li>
-            <li>✨ Added click on Stage Icon</li>
-            <li>✨ Added redirect to job logs on gitlab</li>
-            <li>🐛 Fixed bug displaying manual stages/jobs</li>
+            <li>✨ Improved performance with less api calls</li>
+            <li>🐛 fixed possible leaking threads</li>
         </ul>
         ]]>
     </change-notes>
