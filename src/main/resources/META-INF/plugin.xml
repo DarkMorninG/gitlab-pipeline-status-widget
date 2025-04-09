@@ -52,7 +52,7 @@
                 id="gitlabConfig"
                 displayName="Gitlab Pipeline Widget"/>
         <statusBarWidgetFactory
-                implementation="de.dontknow.gitlabpipelines.widget.StatusWidgetFactory" id="Pipeline Status"/>
+                implementation="de.dontknow.gitlabpipelines.widget.StatusWidgetFactory" id="gitlab-widget-status-factory"/>
     </extensions>
 
 </idea-plugin>
