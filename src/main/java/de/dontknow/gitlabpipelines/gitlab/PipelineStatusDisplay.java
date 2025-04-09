@@ -8,6 +8,7 @@ import com.intellij.util.IconUtil;
 import de.dontknow.gitlabpipelines.gitlab.dto.JobStatus;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineDto;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineJob;
+import de.dontknow.gitlabpipelines.gitlab.dto.ProjectDto;
 import de.dontknow.gitlabpipelines.widget.JobDisplayAction;
 import de.dontknow.gitlabpipelines.widget.JobGroupDropDown;
 import git4idea.GitReference;
@@ -21,6 +22,8 @@ import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -30,7 +33,11 @@ public class PipelineStatusDisplay {
     private final HashMap<String, StagePanelDto> displayedStages = new HashMap<>();
     private final HashMap<Integer, JobPanelActionDto> displayedActionJobs = new HashMap<>();
     private final HashSet<PipelineDto> pipelines = new HashSet<>();
-    private Thread watcher;
+    private ProjectDto projectDto;
+    private GitRepository currentGitRepository;
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    private boolean isRunning = true;
 
     private final GitlabProjectConnection gitlabProjectConnection;
 
@@ -42,30 +49,47 @@ public class PipelineStatusDisplay {
         var connection = project.getMessageBus().connect();
         AtomicReference<String> lastBranch = new AtomicReference<>("");
         connection.subscribe(GitRepository.GIT_REPO_CHANGE, (GitRepositoryChangeListener) repository -> {
-            if (!repository.getCurrentBranch().getName().equals(lastBranch.get())) {
+            if (repository.getCurrentBranch() != null && !repository.getCurrentBranch().getName().equals(lastBranch.get())) {
                 displayLoading(rootPanel);
                 lastBranch.set(repository.getCurrentBranch().getName());
-
             }
         });
 
-        watcher = new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                updateActivePipeline(project, rootPanel);
-                updateJobStates();
+        executorService.submit(() -> {
+            while (isRunning) {
+                if (projectDto == null && currentGitRepository == null) {
+                    updateProjectDtoAndGitRepo(project);
+                } else {
+                    updateActivePipeline(rootPanel);
+                    updateJobStates();
+                }
             }
         });
-        if (!watcher.isAlive()) watcher.start();
+    }
+
+    public void dispose() {
+        executorService.shutdown();
+        isRunning = false;
+    }
+
+    private void updateProjectDtoAndGitRepo(Project project) {
+        var gitRepo = getGitRepo(project);
+        if (gitRepo.isPresent()) {
+            var gitRepository = gitRepo.get();
+            try {
+                projectDto = gitlabProjectConnection.getProject(gitRepository);
+            } catch (URISyntaxException | IOException e) {
+                throw new RuntimeException(e);
+            }
+            currentGitRepository = gitRepository;
+        }
     }
 
 
-    private void updateActivePipeline(Project project, JPanel root) {
+    private void updateActivePipeline(JPanel root) {
         try {
             if (gitlabProjectConnection.isValid()) {
-                var gitRepo = getGitRepo(project);
-                if (gitRepo.isEmpty()) return;
-                var gitlabProject = gitlabProjectConnection.getProject(gitRepo.get());
-                PipelineDto master = gitlabProjectConnection.getLatestPipeline(gitlabProject, gitRepo.map(GitRepository::getCurrentBranch).map(GitReference::getName).orElse("master"));
+                PipelineDto master = gitlabProjectConnection.getLatestPipeline(projectDto, Optional.of(currentGitRepository).map(GitRepository::getCurrentBranch).map(GitReference::getName).orElse("master"));
                 if (master != null) {
                     if (!pipelines.contains(master)) {
                         pipelines.clear();
@@ -83,7 +107,7 @@ public class PipelineStatusDisplay {
 
     }
 
-    public void updatePipelineStatus(JPanel root, PipelineDto pipelineDto) {
+    private void updatePipelineStatus(JPanel root, PipelineDto pipelineDto) {
         try {
             List<PipelineJob> jobsFromPipeline = gitlabProjectConnection.getJobsFromPipeline(pipelineDto);
             if (jobsFromPipeline == null) return;
@@ -139,10 +163,13 @@ public class PipelineStatusDisplay {
 
     private void updateJobStates() {
         List<StagePanelDto> displayLabelJobs = new ArrayList<>(displayedStages.values());
+        var updatedPipelineJob = new HashMap<Integer, PipelineJob>();
+
         displayLabelJobs.parallelStream().forEach(stagePanelDto -> {
             var stageStatuses = stagePanelDto.stageJobs.parallelStream()
                     .map(job -> gitlabProjectConnection.getJob(job.pipeline().project_id(), job.id()))
                     .filter(Objects::nonNull)
+                    .peek(pipelineJob -> updatedPipelineJob.put(pipelineJob.id(), pipelineJob))
                     .map(PipelineJob::status)
                     .toList();
             if (stageStatuses.stream().anyMatch(status -> status == JobStatus.failed)) {
@@ -161,8 +188,8 @@ public class PipelineStatusDisplay {
         });
 
         List<JobPanelActionDto> displayActionJobs = new ArrayList<>(displayedActionJobs.values());
-        displayActionJobs.forEach(pipelineJob -> {
-            PipelineJob job = gitlabProjectConnection.getJob(pipelineJob.pipelineJob.pipeline().project_id(), pipelineJob.pipelineJob.id());
+        displayActionJobs.parallelStream().forEach(pipelineJob -> {
+            var job = updatedPipelineJob.get(pipelineJob.pipelineJob.id());
             if (job == null) return;
             pipelineJob.jobDisplayAction.getTemplatePresentation().setIcon(job.status().getIcon());
             pipelineJob.jobDisplayAction.getTemplatePresentation().setText(job.name());

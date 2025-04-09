@@ -12,6 +12,7 @@ import javax.swing.*;
 public class PipelineStatusWidget implements CustomStatusBarWidget {
     private final GitlabProjectConnection gitlabProjectConnection;
     private final Project project;
+    private PipelineStatusDisplay pipelineStatusDisplay;
 
     public PipelineStatusWidget(GitlabProjectConnection gitlabProjectConnection, @NotNull Project project) {
         this.gitlabProjectConnection = gitlabProjectConnection;
@@ -31,14 +32,16 @@ public class PipelineStatusWidget implements CustomStatusBarWidget {
 
     @Override
     public void dispose() {
-        // Clean up resources if necessary.
+        if (pipelineStatusDisplay != null) {
+            pipelineStatusDisplay.dispose();
+        }
     }
 
     @Override
     public JComponent getComponent() {
         var root = new JPanel();
         root.setLayout(new BoxLayout(root, BoxLayout.X_AXIS));
-        var pipelineStatusDisplay = new PipelineStatusDisplay(gitlabProjectConnection);
+        this.pipelineStatusDisplay = new PipelineStatusDisplay(gitlabProjectConnection);
         pipelineStatusDisplay.startWatcher(project, root);
         return root;
     }
