@@ -4,7 +4,7 @@ import com.intellij.openapi.util.IconLoader;
 
 import javax.swing.*;
 
-public enum JobStatus {
+public enum GitlabStatus {
     waiting_for_resource("/Icons/status-waiting.svg"),
     success("/Icons/status_success_solid.svg"),
     pending("/Icons/status-paused.svg"),
@@ -15,7 +15,7 @@ public enum JobStatus {
 
     private String iconPath;
 
-    JobStatus(String iconPath) {
+    GitlabStatus(String iconPath) {
         this.iconPath = iconPath;
     }
 

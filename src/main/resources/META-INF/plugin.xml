@@ -25,12 +25,11 @@
     </description>
 
 
-    <version>1.0.4</version>
+    <version>1.0.5</version>
     <change-notes>
         <![CDATA[
         <ul>
-            <li>✨ Improved performance with less api calls</li>
-            <li>🐛 fixed possible leaking threads</li>
+            <li>✨ Improved performance with even api calls if the pipeline is already finished</li>
         </ul>
         ]]>
     </change-notes>

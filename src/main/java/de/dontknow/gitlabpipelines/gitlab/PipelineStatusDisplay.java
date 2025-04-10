@@ -5,7 +5,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.util.IconUtil;
-import de.dontknow.gitlabpipelines.gitlab.dto.JobStatus;
+import de.dontknow.gitlabpipelines.gitlab.dto.GitlabStatus;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineDto;
 import de.dontknow.gitlabpipelines.gitlab.dto.PipelineJob;
 import de.dontknow.gitlabpipelines.gitlab.dto.ProjectDto;
@@ -35,6 +35,7 @@ public class PipelineStatusDisplay {
     private final HashSet<PipelineDto> pipelines = new HashSet<>();
     private ProjectDto projectDto;
     private GitRepository currentGitRepository;
+    private boolean pipelineCompleted;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private boolean isRunning = true;
@@ -60,8 +61,10 @@ public class PipelineStatusDisplay {
                 if (projectDto == null && currentGitRepository == null) {
                     updateProjectDtoAndGitRepo(project);
                 } else {
+                    if (!pipelineCompleted) {
+                        updateJobStates();
+                    }
                     updateActivePipeline(rootPanel);
-                    updateJobStates();
                 }
             }
         });
@@ -91,6 +94,7 @@ public class PipelineStatusDisplay {
             if (gitlabProjectConnection.isValid()) {
                 PipelineDto master = gitlabProjectConnection.getLatestPipeline(projectDto, Optional.of(currentGitRepository).map(GitRepository::getCurrentBranch).map(GitReference::getName).orElse("master"));
                 if (master != null) {
+                    pipelineCompleted = master.status() == GitlabStatus.failed || master.status() == GitlabStatus.success;
                     if (!pipelines.contains(master)) {
                         pipelines.clear();
                         pipelines.add(master);
@@ -116,7 +120,6 @@ public class PipelineStatusDisplay {
             var jobsByStage = jobsFromPipeline.stream().collect(Collectors.groupingBy(PipelineJob::stage, LinkedHashMap::new, Collectors.toList()));
             AtomicBoolean isFirst = new AtomicBoolean(false);
 
-
             jobsByStage.forEach((stage, jobs) -> {
                 if (!isFirst.get()) {
                     isFirst.set(true);
@@ -140,8 +143,8 @@ public class PipelineStatusDisplay {
                 displayedStages.put(stage, new StagePanelDto(stageLabelDisplay, jobs));
                 stageLabelDisplay.setToolTipText(stage);
                 root.add(stageLabelDisplay);
-
             });
+            updateJobStates();
 
         } catch (URISyntaxException |
                  IOException e) {
@@ -172,18 +175,18 @@ public class PipelineStatusDisplay {
                     .peek(pipelineJob -> updatedPipelineJob.put(pipelineJob.id(), pipelineJob))
                     .map(PipelineJob::status)
                     .toList();
-            if (stageStatuses.stream().anyMatch(status -> status == JobStatus.failed)) {
-                stagePanelDto.label.setIcon(JobStatus.failed.getIcon());
-            } else if (stageStatuses.stream().anyMatch(status -> status == JobStatus.running)) {
-                stagePanelDto.label.setIcon(JobStatus.running.getIcon());
-            } else if (stageStatuses.stream().anyMatch(status -> status == JobStatus.pending)) {
-                stagePanelDto.label.setIcon(JobStatus.pending.getIcon());
-            } else if (stageStatuses.stream().anyMatch(status -> status == JobStatus.manual)) {
-                stagePanelDto.label.setIcon(JobStatus.manual.getIcon());
-            } else if (stageStatuses.stream().allMatch(status -> status == JobStatus.created)) {
-                stagePanelDto.label.setIcon(JobStatus.created.getIcon());
-            } else if (stageStatuses.stream().allMatch(status -> status == JobStatus.success)) {
-                stagePanelDto.label.setIcon(JobStatus.success.getIcon());
+            if (stageStatuses.stream().anyMatch(status -> status == GitlabStatus.failed)) {
+                stagePanelDto.label.setIcon(GitlabStatus.failed.getIcon());
+            } else if (stageStatuses.stream().anyMatch(status -> status == GitlabStatus.running)) {
+                stagePanelDto.label.setIcon(GitlabStatus.running.getIcon());
+            } else if (stageStatuses.stream().anyMatch(status -> status == GitlabStatus.pending)) {
+                stagePanelDto.label.setIcon(GitlabStatus.pending.getIcon());
+            } else if (stageStatuses.stream().anyMatch(status -> status == GitlabStatus.manual)) {
+                stagePanelDto.label.setIcon(GitlabStatus.manual.getIcon());
+            } else if (stageStatuses.stream().allMatch(status -> status == GitlabStatus.created)) {
+                stagePanelDto.label.setIcon(GitlabStatus.created.getIcon());
+            } else if (stageStatuses.stream().allMatch(status -> status == GitlabStatus.success)) {
+                stagePanelDto.label.setIcon(GitlabStatus.success.getIcon());
             }
         });
 
