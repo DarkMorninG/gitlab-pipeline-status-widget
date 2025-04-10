@@ -29,7 +29,7 @@
     <change-notes>
         <![CDATA[
         <ul>
-            <li>✨ Improved performance with even api calls if the pipeline is already finished</li>
+            <li>✨ Improved performance with even less api calls if the pipeline is already finished</li>
         </ul>
         ]]>
     </change-notes>
