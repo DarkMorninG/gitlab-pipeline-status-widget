@@ -12,6 +12,7 @@ repositories {
 }
 dependencies{
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.3")
+    implementation("io.projectreactor:reactor-core:3.6.0")
 }
 
 // Configure Gradle IntelliJ Plugin
@@ -36,7 +37,7 @@ tasks {
 
     patchPluginXml {
         sinceBuild.set("241")
-        untilBuild.set("243.*")
+        untilBuild.set("251.*")
     }
 
     signPlugin {

@@ -25,11 +25,12 @@
     </description>
 
 
-    <version>1.0.5</version>
+    <version>1.0.6</version>
     <change-notes>
         <![CDATA[
         <ul>
-            <li>✨ Improved performance with even less api calls if the pipeline is already finished</li>
+            <li>✨ Upgraded Jetbrains Version</li>
+            <li>✨ Switched to a better Threading model</li>
         </ul>
         ]]>
     </change-notes>

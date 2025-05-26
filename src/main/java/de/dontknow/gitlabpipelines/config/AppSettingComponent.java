@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Supports creating and managing a {@link JPanel} for the Settings Dialog.
@@ -37,13 +38,17 @@ public class AppSettingComponent {
 
     private void updateStatusSymbol(GitlabProjectConnection gitlabProjectConnection) {
         connectionStatusLabel.setIcon(IconLoader.getIcon("/Icons/status-running.svg", getClass()));
-        new Thread(() -> {
+        CompletableFuture.runAsync(() -> {
             if (gitlabProjectConnection.isValid(gitlabUrlText.getText(), new String(gitlabPrivateTokenText.getPassword()))) {
                 connectionStatusLabel.setIcon(IconLoader.getIcon("/Icons/status_success_solid.svg", getClass()));
             } else {
                 connectionStatusLabel.setIcon(IconLoader.getIcon("/Icons/status-failed.svg", getClass()));
             }
-        }).start();
+        }).whenComplete((unused, throwable) -> {
+            if (throwable != null) {
+                throw new RuntimeException(throwable);
+            }
+        });
     }
 
     public JPanel getPanel() {

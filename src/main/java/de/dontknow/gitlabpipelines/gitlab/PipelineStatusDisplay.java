@@ -15,15 +15,16 @@ import git4idea.GitReference;
 import git4idea.repo.GitRepository;
 import git4idea.repo.GitRepositoryChangeListener;
 import git4idea.repo.GitRepositoryManager;
+import reactor.core.publisher.Flux;
 
 import javax.swing.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -36,10 +37,8 @@ public class PipelineStatusDisplay {
     private ProjectDto projectDto;
     private GitRepository currentGitRepository;
     private boolean pipelineCompleted;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private boolean isRunning = true;
-
     private final GitlabProjectConnection gitlabProjectConnection;
 
     public PipelineStatusDisplay(GitlabProjectConnection gitlabProjectConnection) {
@@ -56,22 +55,22 @@ public class PipelineStatusDisplay {
             }
         });
 
-        executorService.submit(() -> {
-            while (isRunning) {
-                if (projectDto == null && currentGitRepository == null) {
-                    updateProjectDtoAndGitRepo(project);
-                } else {
-                    if (!pipelineCompleted) {
-                        updateJobStates();
+
+        Flux.interval(Duration.of(1, ChronoUnit.SECONDS))
+                .handle((aLong, synchronousSink) -> {
+                    if (projectDto == null && currentGitRepository == null) {
+                        updateProjectDtoAndGitRepo(project);
+                    } else {
+                        if (!pipelineCompleted) {
+                            updateJobStates();
+                        }
+                        updateActivePipeline(rootPanel);
                     }
-                    updateActivePipeline(rootPanel);
-                }
-            }
-        });
+                }).takeUntil(o -> !isRunning)
+                .subscribe();
     }
 
     public void dispose() {
-        executorService.shutdown();
         isRunning = false;
     }
 
