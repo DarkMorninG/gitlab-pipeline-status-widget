@@ -25,13 +25,14 @@
     </description>
 
 
-    <version>1.0.7</version>
+    <version>1.0.8</version>
     <change-notes>
         <![CDATA[
         <ul>
             <li>✨ Upgraded Jetbrains Version</li>
             <li>✨ Switched to a better Threading model</li>
             <li>💥 Fixed errors on canceled pipelines</li>
+            <li>💥 Fixed errors on skipped pipelines</li>
         </ul>
         ]]>
     </change-notes>

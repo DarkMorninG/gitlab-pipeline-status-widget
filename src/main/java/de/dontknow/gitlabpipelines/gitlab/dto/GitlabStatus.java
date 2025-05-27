@@ -12,6 +12,7 @@ public enum GitlabStatus {
     running("/Icons/status-running.svg"),
     created("/Icons/status-waiting.svg"),
     canceled("/Icons/status_canceled.svg"),
+    skipped("/Icons/status_skipped.svg"),
     manual("/Icons/status_manual.svg");
 
     private String iconPath;
