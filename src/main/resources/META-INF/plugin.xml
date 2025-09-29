@@ -25,7 +25,7 @@
     </description>
 
 
-    <version>1.0.8</version>
+    <version>1.0.9</version>
     <change-notes>
         <![CDATA[
         <ul>
@@ -33,6 +33,7 @@
             <li>✨ Switched to a better Threading model</li>
             <li>💥 Fixed errors on canceled pipelines</li>
             <li>💥 Fixed errors on skipped pipelines</li>
+            <li>✨ Version Bump</li>
         </ul>
         ]]>
     </change-notes>
